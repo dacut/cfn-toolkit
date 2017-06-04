@@ -39,6 +39,42 @@ example:
 
 # Available resources
 
+## Custom::DynamoDB::Item
+Create or update an item in a DynamoDB table.
+
+### Properties
+* `ConditionExpression`: Optional: A condition that must be satisfied for an update to proceed.
+* `DeletionPolicy`: Optional: Either `Delete` (default) or `Retain`. If `Retain`, the item is not deleted when the stack is deleted. This is supported both within the `Properties` section and [alongside it as is standard CloudFormation syntax](http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-attribute-deletionpolicy.html).
+* `ExpressionAttributeNames`: Optional: If update expressions have placeholders for the attribute names, this is a mapping of the placeholder names to the actual names.
+* `ExpressionAttributeValues`: Optional: If update expressions have placeholders for the attribute values, this is a mapping of the placeholders to their actual values.
+* `Key`: Required: The key of the item. This is a mapping of key names to their typed values (itself a single-item mapping).
+* `TableName`: Required: The name of the DynamoDB table to contain the item.
+* `UpdateExpression`: Required: The expression defining the attributes to update.
+* `UpdatePolicy`: Either `Retain` or `Update` (default). If `Retain`, the item is not updated when the stack is updated. This is only supported within the `Properties` section; CloudFormation does not allow this elsewhere.
+
+### Returned Attributes
+None
+
+### Example
+```yaml
+  Resources:
+    InitialPassword:
+      Type: Custom::DynamoDB::Item
+      Properties:
+        TableName: SiteProperties
+        Key:
+          Name:
+            S: InitialPasswordHash
+        UpdateExpression: "SET #V = :hash"
+        ExpressionAttributeNames:
+          "#V": Value
+        ExpressionAttributeValues:
+          ":hash":
+            S: !GetAtt PasswordHash.Hash
+        UpdatePolicy: Retain
+        DeletionPolicy: Delete
+```
+
 ## Custom::FindAMI
 Find the latest version of an AMI.
 
