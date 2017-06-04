@@ -15,8 +15,7 @@ by doing so.) For example:
       Properties:
         Code:
           S3Bucket: kanga-cfn
-          S3Key: cfn-generator.zip
-          S3ObjectVersion: 1
+          S3Key: cfn-generator-2017-06-05.zip
         Description: CloudFormation custom properties
         Handler: handler.lambda_handler
         MemorySize: 128
@@ -39,6 +38,25 @@ example:
 ```
 
 # Available resources
+
+## Custom::FindAMI
+Find the latest version of an AMI.
+
+### Properties
+* `Architecture`: Optional: The image architecture, either `i386` or `x86_64`.
+* `EnaSupport`: Optional: If specified, filters images with/without Elastic Network Adapter support.
+* `ExcludedDescriptions`: Optional: A list of regular expressions to test against the description field. Any AMI descriptions matching one of these expressions is ignored.
+* `IncludedDescriptions`: Optional: A list of regular expressions to test against the description field. Any AMI descriptions not matching one of these expressions is ignored.
+* `InstanceType`: Optional: If specified, filters images capable of running on the given instance type. This sets `Architecture`, `RootDeviceType`, and `VirtualizationType`.
+* `Owner`: Required: The owner of the AMI. This should be a 12-digit AWS account number, `amazon`, `aws-marketplace`, `microsoft`, or `self`.
+* `Platform`: Optional: Use `windows` to limit the results to Windows AMIs.
+* `PreferredRootDeviceType`: Optional: If specified, prefers (but does not require) images using the specified root device type, either `ebs` or `instance-store`. If `InstanceType` is specified and the selected instance type does not support instance stores, this is ignored.
+* `PreferredVirtualizationType`: Optional: If specified, prefers (but does not require) images using the specified virtualization type, either `hvm` or `paravirtual`. If `InstanceType` is specified and the selected instance type does not support the preferred virtualization type, this is ignored.
+* `RootDeviceType`: Optional: If specified, filters images to the specified root device type, either `ebs` or `instance-store`.
+* `VirtualizationType`: Optional: If specified, filters images to the specified virtualization type, either `hvm` or `paravirtual`.
+
+### ReturnedAttributes
+* `AmiId`: The id of the most relevant AMI found.
 
 ## Custom::GeneratePassword
 Generate a password using passlib. See the [passlib documentation](https://passlib.readthedocs.io/en/stable/lib/passlib.pwd.html) for more details.
