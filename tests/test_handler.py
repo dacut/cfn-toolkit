@@ -28,7 +28,8 @@ class ResponseHandler(BaseHTTPRequestHandler):
 
 class TestHandler(TestCase):
     def setUp(self):
-        self.server = HTTPServer(("127.0.0.1", 13438), ResponseHandler)
+        ResponseHandler.responses = []
+        self.server = HTTPServer(("127.0.0.1", 0), ResponseHandler)
         self.thread = Thread(target=self.server.serve_forever)
         self.thread.start()
         return
@@ -38,21 +39,36 @@ class TestHandler(TestCase):
         self.thread.join()
         return
 
-    def test_pwgen(self):
-        import handler
-        handler.lambda_handler({
+    def invoke(self, ResourceType, RequestType="Create",
+               LogicalResourceId="LogicalResourceId", **kw):
+        sockname = self.server.socket.getsockname()
+
+        event = {
             "StackId": "stack-1234",
             "RequestId": "req-1234",
-            "LogicalResourceId": "password",
-            "RequestType": "Create",
-            "ResourceType": "Custom::GeneratePassword",
-            "ResponseURL": "http://127.0.0.1:13438/",
-            "ResourceProperties": {},
-        }, None)
+            "LogicalResourceId": LogicalResourceId,
+            "RequestType": RequestType,
+            "ResourceType": ResourceType,
+            "ResponseURL": "http://%s:%s/" % (sockname[0], sockname[1]),
+            "ResourceProperties": kw,
+        }
 
-        response = ResponseHandler.responses.pop()
-        result = json_loads(response)
+        import handler
+        handler.lambda_handler(event, None)
+        return json_loads(ResponseHandler.responses.pop())
 
+
+    def test_pwgen(self):
+        result = self.invoke(ResourceType="Custom::GeneratePassword")
         self.assertIn("Data", result)
         self.assertIn("PlaintextPassword", result["Data"])
         return
+
+    def test_hash_password(self):
+        result = self.invoke(
+            ResourceType="Custom::HashPassword",
+            Scheme="pbkdf2_sha256",
+            PlaintextPassword="Hello")
+        self.assertIn("Data", result)
+        self.assertIn("Hash", result["Data"])
+        self.assertTrue(result["Data"]["Hash"].startswith("$pbkdf2-sha256$"))
