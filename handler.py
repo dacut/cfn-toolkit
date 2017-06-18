@@ -318,7 +318,7 @@ def generate_password(event):
             kw["words"] = rp["Words"]
 
         if "Separator" in rp:
-            kw["separator"] = rp["Separator"]
+            kw["sep"] = rp["Separator"]
     elif password_type == "word":
         generator = genword
 
