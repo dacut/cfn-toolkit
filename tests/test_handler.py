@@ -5,10 +5,10 @@ from json import loads as json_loads
 from io import BytesIO
 from sys import stderr
 from threading import Thread
-from unittest import TestCase
+from unittest import skip, TestCase
 
 import boto3
-
+from moto import mock_apigateway
 
 class ResponseHandler(BaseHTTPRequestHandler):
     responses = []
@@ -45,6 +45,7 @@ class TestHandler(TestCase):
 
     def setUp(self):
         ResponseHandler.responses = []
+        print("Handler is listening on %s:%s" % tuple(self.server.socket.getsockname()), file=stderr)
         return
 
     def invoke(self, ResourceType, RequestType="Create",
@@ -774,3 +775,19 @@ class TestHandler(TestCase):
 
         self.assertEquals(result["Status"], "SUCCESS")
         self.assertEquals(result["PhysicalResourceId"], "abcd-zxcv")
+
+    @skip("Moto doesn't support update_rest_api yet")
+    def test_apigw_binary(self):
+        with mock_apigateway():
+            apigw = boto3.client("apigateway")
+            result = apigw.create_rest_api(name="test")
+            rest_api_id = result["id"]
+
+            result = self.invoke(
+                ResourceType="Custom::ApiGatewayBinary",
+                RestApiId=rest_api_id)
+
+            self.assertEquals(result["Status"], "SUCCESS")
+
+            result = apigw.get_rest_api(restApiId=rest_api_id)
+            self.assertIn("*/*", result["binaryMediaTypes"])
