@@ -10,7 +10,7 @@ setup(
     py_modules=["handler", "hashparams"],
     setup_requires=["nose>=1.0"],
     install_requires=packages,
-    tests_require=["coverage>=4.0", "nose>=1.0"],
+    tests_require=["coverage>=4.0", "moto", "nose>=1.0"],
     test_suite="tests",
 
     # PyPI information

@@ -44,12 +44,13 @@ def lambda_handler(event, context):
             data = handler(event)
             if data is None:
                 data = {}
-            if "PhysicalResourceId" in data:
+            if "PhysicalResourceId" in data: # pragma: nocover
                 body["PhysicalResourceId"] = data.pop("PhysicalResourceId")
             body["Status"] = "SUCCESS"
             del body["Reason"]
             body["Data"] = data
         except Exception as e:
+            log.error("Failed", exc_info=1)
             body["Reason"] = str(e)
 
     if "PhysicalResourceId" not in body:
@@ -149,7 +150,7 @@ def find_image(event):
 
     architecture = rp.get("Architecture")
     if architecture is not None:
-        filters.append[{"Name": "architecture", "Values": [architecture]}]
+        filters.append({"Name": "architecture", "Values": [architecture]})
 
     ena_support = rp.get("EnaSupport")
     if ena_support is not None:
@@ -166,19 +167,17 @@ def find_image(event):
         else:
             instance_family = instance_type
 
-        if instance_family in {"c3", "hi1", "hs1", "m3"}:
-            # Switch hitting instance types; don't set virtualization type
-            pass
-        elif instance_family in {"c1", "m1", "m2", "t1"}:
+        if instance_family in {"c1", "m1", "m2", "t1"}:
             # PV-only instance types
             if ("VirtualizationType" in rp and
                 rp.pop("VirtualizationType") != "paravirtual"):
                 raise ValueError(
-                    "VirtualizationType must be paravritual for %s instance types" %
-                    instance_type)
+                    "VirtualizationType must be paravirtual for %s "
+                    "instance types" % instance_type)
             filters.append({"Name": "virtualization-type",
                             "Values": ["paravirtual"]})
-        else:
+        elif instance_family not in {"c3", "hi1", "hs1", "m3"}:
+            # Ignore Switch hitting instance types (c3, etc.)
             if ("VirtualizationType" in rp and
                 rp.pop("VirtualizationType") != "hvm"):
                 raise ValueError(
@@ -250,7 +249,7 @@ def find_image(event):
 
     if included_descriptions is not None:
         regex = re.compile(
-            "|".join(["(?:%s)" % desc for desc in excluded_descriptions]))
+            "|".join(["(?:%s)" % desc for desc in included_descriptions]))
 
         images = [im for im in images if regex.search(im["Description"])]
 
@@ -259,7 +258,7 @@ def find_image(event):
 
     if included_names is not None:
         regex = re.compile(
-            "|".join(["(?:%s)" % desc for desc in excluded_names]))
+            "|".join(["(?:%s)" % desc for desc in included_names]))
 
         images = [im for im in images if regex.search(im["Name"])]
 
@@ -285,7 +284,7 @@ def find_image(event):
     images.sort(key=sort_key, reverse=True)
     image_ids = [image["ImageId"] for image in images]
     return {
-        "ImageId": images_ids[0],
+        "ImageId": image_ids[0],
         "MatchingImageIds": image_ids,
     }
 
