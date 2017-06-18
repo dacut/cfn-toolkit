@@ -436,10 +436,10 @@ def hash_password(event):
     elif not scheme:
         raise ValueError("Scheme cannot be empty")
 
-    if scheme not in HashAlgorithm.algorithms:
+    if scheme.replace("-", "_") not in HashAlgorithm.algorithms:
         raise ValueError("Unknown scheme %r" % scheme)
 
-    algorithm = HashAlgorithm.algorithms[scheme]
+    algorithm = HashAlgorithm.algorithms[scheme.replace("-", "_")]
 
     # Don't allow insecure algorithms if AllowInsecure wasn't specified.
     if not algorithm.is_secure and not allow_insecure:
@@ -487,7 +487,8 @@ def hash_password(event):
         builder_kw[parameter.algorithm_parameter] = parameter_value
 
     if rp:
-        raise ValueError("Unknown parameters: %s" % ", ".join(rp.keys()))
+        raise ValueError("Unknown parameters: %s" %
+                         ", ".join(sorted(rp.keys())))
 
     builder = builder.using(**builder_kw)
     result = builder.hash(plaintext_password)
