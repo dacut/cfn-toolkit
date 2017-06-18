@@ -7,7 +7,7 @@ from base64 import b64decode, b64encode
 from distutils.util import strtobool
 from json import dumps as json_dumps
 from logging import getLogger, DEBUG
-from os import environ
+from os import environ, urandom
 import re
 from uuid import uuid4
 
@@ -507,7 +507,7 @@ def secure_random(event):
     except ValueError:
         raise ValueError("Invalid size parameter: %r" % (size,))
 
-    result = b64encode(urandom(size))
+    result = b64encode(urandom(size)).decode("utf-8")
     return {"Base64": result}
 
 
