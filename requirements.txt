@@ -1,0 +1,4 @@
+boto3
+iso8601
+passlib
+requests

@@ -75,14 +75,16 @@ None
         DeletionPolicy: Delete
 ```
 
-## Custom::FindAMI
-Find the latest version of an AMI.
+## Custom::FindImage
+Find the latest version of an AMI/AKI/ARI.
 
 ### Properties
 * `Architecture`: Optional: The image architecture, either `i386` or `x86_64`.
 * `EnaSupport`: Optional: If specified, filters images with/without Elastic Network Adapter support.
-* `ExcludedDescriptions`: Optional: A list of regular expressions to test against the description field. Any AMI descriptions matching one of these expressions is ignored.
-* `IncludedDescriptions`: Optional: A list of regular expressions to test against the description field. Any AMI descriptions not matching one of these expressions is ignored.
+* `ExcludedDescriptions`: Optional: A list of regular expressions to test against the description field. Any AMI whose description matches one of these expressions is ignored.
+* `ExcludedNames`: Optional: A list of regular expressions to test against the name field. Any AMI whose name matches one of these expressions is ignored.
+* `IncludedDescriptions`: Optional: A list of regular expressions to test against the description field. Any AMI whose description does not match one of these expressions is ignored.
+* `IncludedNames`: Optional: A list of regular expressions to test against the name field. Any AMI whose name does not match one of these expressions is ignored.
 * `InstanceType`: Optional: If specified, filters images capable of running on the given instance type. This sets `Architecture`, `RootDeviceType`, and `VirtualizationType`.
 * `Owner`: Required: The owner of the AMI. This should be a 12-digit AWS account number, `amazon`, `aws-marketplace`, `microsoft`, or `self`.
 * `Platform`: Optional: Use `windows` to limit the results to Windows AMIs.
@@ -92,7 +94,8 @@ Find the latest version of an AMI.
 * `VirtualizationType`: Optional: If specified, filters images to the specified virtualization type, either `hvm` or `paravirtual`.
 
 ### ReturnedAttributes
-* `AmiId`: The id of the most relevant AMI found.
+* `ImageId`: The id of the most relevant AMI/AKI/ARI found.
+* `MatchingImageIds`: A list of the matching AMI/AKI/ARI image ids.
 
 ## Custom::GeneratePassword
 Generate a password using passlib. See the [passlib documentation](https://passlib.readthedocs.io/en/stable/lib/passlib.pwd.html) for more details.
@@ -163,7 +166,7 @@ The following property is applicable to the `scram` hash:
 
 The following properties are applicable to the `scrypt` hash:
 * `BlockSize`: Optional: block size to pass to the scrypt hash function (scrypt `r` parameter).
-* `Parallelism`: Optional: parallelisation factor (scrypt `p` parameter). 
+* `Parallelism`: Optional: parallelisation factor (scrypt `p` parameter).
 
 The following property is applicable to the `sun_md5_crypt` hash:
 * `BareSalt`: Defaults to `false`. See the [passlib documentation for details](https://passlib.readthedocs.io/en/stable/lib/passlib.hash.sun_md5_crypt.html#smc-bare-salt).
