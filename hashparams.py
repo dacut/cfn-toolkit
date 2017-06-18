@@ -94,6 +94,7 @@ lmhash_encoding = HashParameter("encoding", str)
 user = HashParameter("user", str)
 scram_algs = HashParameter("algs", list, validator=validate_scram_algs)
 sun_md5_crypt_bare_salt = HashParameter("bare_salt", bool)
+variant = HashParameter("variant", int, min_value=0, max_value=3)
 
 #### Secure algorithms
 
@@ -267,6 +268,7 @@ HashAlgorithm(
         "Salt": salt,
         "SaltSize": salt_size_1,
         "Rounds": rounds_1_4294967295,
+        "Variant": variant,
     })
 
 HashAlgorithm("hex_md4", algorithm=hex_md4, is_secure=False)
