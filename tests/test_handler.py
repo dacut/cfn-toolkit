@@ -54,9 +54,13 @@ class TestHandler(TestCase):
             "LogicalResourceId": LogicalResourceId,
             "RequestType": RequestType,
             "ResourceType": ResourceType,
-            "ResponseURL": "http://%s:%s/" % (sockname[0], sockname[1]),
-            "ResourceProperties": kw,
+            "ResponseURL": "http://%s:%s/" % (sockname[0], sockname[1])
         }
+
+        if "PhysicalResourceId" in kw:
+            event["PhysicalResourceId"] = kw.pop("PhysicalResourceId")
+
+        event["ResourceProperties"] = kw
 
         import handler
         handler.lambda_handler(event, None)
@@ -221,3 +225,26 @@ class TestHandler(TestCase):
         self.assertEquals(result["Status"], "FAILED")
         self.assertEquals(
             result["Reason"], "Unknown parameters: Baz, Foo")
+
+    def test_secure_random_ok(self):
+        result = self.invoke(
+            ResourceType="Custom::SecureRandom",
+            Size=10)
+        self.assertEquals(result["Status"], "SUCCESS")
+        self.assertIn("Base64", result["Data"])
+
+    def test_secure_random_bad_size(self):
+        result = self.invoke(
+            ResourceType="Custom::SecureRandom",
+            Size=0)
+        self.assertEquals(result["Status"], "FAILED")
+        self.assertEquals(result["Reason"], "Invalid size parameter: 0")
+
+    def test_secure_random_ignore_delete(self):
+        result = self.invoke(
+            ResourceType="Custom::SecureRandom",
+            PhysicalResourceId="abcd-efgh",
+            RequestType="Delete",
+            Size=0)
+        self.assertEquals(result["Status"], "SUCCESS")
+        self.assertEquals(result["PhysicalResourceId"], "abcd-efgh")
