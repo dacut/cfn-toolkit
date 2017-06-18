@@ -27,16 +27,21 @@ class ResponseHandler(BaseHTTPRequestHandler):
 
 
 class TestHandler(TestCase):
-    def setUp(self):
-        ResponseHandler.responses = []
-        self.server = HTTPServer(("127.0.0.1", 0), ResponseHandler)
-        self.thread = Thread(target=self.server.serve_forever)
-        self.thread.start()
+    @classmethod
+    def setUpClass(cls):
+        cls.server = HTTPServer(("127.0.0.1", 0), ResponseHandler)
+        cls.thread = Thread(target=cls.server.serve_forever)
+        cls.thread.start()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.server.shutdown()
+        cls.thread.join()
         return
 
-    def tearDown(self):
-        self.server.shutdown()
-        self.thread.join()
+
+    def setUp(self):
+        ResponseHandler.responses = []
         return
 
     def invoke(self, ResourceType, RequestType="Create",
