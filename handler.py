@@ -137,6 +137,7 @@ def hash_password(event):
     plaintext_password = rp.pop("PlaintextPassword", None)
     scheme = rp.pop("Scheme", None)
 
+    # Make sure we have exactly one of plaintext_password or ciphertext_b64_password
     if plaintext_password is None:
         if ciphertext_b64_password is None:
             raise ValueError(
@@ -176,6 +177,7 @@ def hash_password(event):
         if not isinstance(plaintext_password, str):
             raise TypeError("PlaintextPassword must be a string")
 
+    # Make sure Scheme was specified and is valid.
     if scheme is None:
         raise ValueError("Scheme must be specified")
     elif not isinstance(scheme, str):
@@ -186,7 +188,60 @@ def hash_password(event):
     if scheme not in HashAlgorithm.algorithms:
         raise ValueError("Unknown scheme %r" % scheme)
 
-    algorithm = scheme.algorithms[scheme]
+    algorithm = HashAlgorithm.algorithms[scheme]
+
+    # Don't allow insecure algorithms if AllowInsecure wasn't specified.
+    if not algorithm.is_secure and not allow_insecure:
+        raise ValueError(
+            "Scheme %s is insecure and AllowInsecure was not specified" % scheme)
+
+    # Parse algorithm-specific parameters
+    builder = algorithm.algorithm
+    builder_kw = {}
+
+    for parameter_name, parameter in algorithm.parameters.items():
+        if parameter_name not in rp:
+            continue
+
+        parameter_value = rp.pop(parameter_name)
+        try:
+            parameter_value = parameter.type(parameter_value)
+        except (TypeError, ValueError):
+            raise ValueError("Invalid value for parameter %s: %r" %
+                (parameter_name, parameter_value))
+
+        if parameter.validator is not None:
+            parameter.validator(parameter_value)
+
+        if (parameter.min_length is not None and
+            len(parameter_value) < parameter.min_length):
+            raise ValueError("Length of parameter %s cannot be less than %s: %r" %
+                (parameter_name, parameter.min_length, parameter_value))
+
+        if (parameter.max_length is not None and
+            len(parameter_value) > parameter.max_length):
+            raise ValueError("Length of parameter %s cannot be greater than %s: %r" %
+                (parameter_name, parameter.max_length, parameter_value))
+
+        if (parameter.min_value is not None and
+            parameter_value < parameter.min_value):
+            raise ValueError("Value of parameter %s cannot be less than %s: %r" %
+                (parameter_name, parameter.min_value, parameter_value))
+
+        if (parameter.max_value is not None and
+            parameter_value > parameter.max_value):
+            raise ValueError("Value of parameter %s cannot be greater than %s: %r" %
+                (parameter_name, parameter.max_value, parameter_value))
+
+        builder_kw[parameter.algorithm_parameter] = parameter_value
+
+    if rp:
+        raise ValueError("Unknown parameters: %s" % ", ".join(rp.keys()))
+
+    builder = builder.using(**builder_kw)
+    result = builder.hash(plaintext_password)
+
+    return {"Hash": result}
 
 def secure_random(event):
     if event["RequestType"] not in ("Create", "Update"):
