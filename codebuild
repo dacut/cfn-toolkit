@@ -57,8 +57,8 @@ build() {
 
 postbuild() {
   # Upload the Lambda ZIP file to the staging bucket.
-  S3_VERSION="$(aws --output text s3 cp
-    $CODEBUILD_SRC_DIR/cfn-toolkit-lambda.zip "s3://${S3_BUCKET}/${S3_KEY}"
+  S3_VERSION="$(aws --output text s3 cp \
+    $CODEBUILD_SRC_DIR/cfn-toolkit-lambda.zip "s3://${S3_BUCKET}/${S3_KEY}" \
     --query VersionId)"
 
   # Create a CFN parameter file.
