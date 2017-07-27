@@ -24,7 +24,7 @@ main() {
 }
 
 install() {
-  pip-3.6 install awscli virtualenv
+  pip3.6 install awscli virtualenv
   return 0;
 }
 
@@ -34,7 +34,7 @@ prebuild() {
   source venv/bin/activate
 
   # Install our dependencies.
-  pip install -r requirements.txt
+  pip3.6 install -r requirements.txt
 }
 
 build() {
