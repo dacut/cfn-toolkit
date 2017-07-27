@@ -47,7 +47,7 @@ build() {
 
   cd venv/lib/python3.6/site-packages
 
-  zip -r $CODEBUILD_SRC_DIR/lambda.zip . --exclude "*.dist-info/*" "*.so" \
+  zip -r $CODEBUILD_SRC_DIR/cfn-toolkit-lambda.zip . --exclude "*.dist-info/*" "*.so" \
     "*.dylib" "boto3/*" "botocore/*" "coverage/*" "docutils/*" "jmespath/*" \
     "markupsafe/*" "mock/*" "moto/*" "nose/*" "pbr/*" "pip/*" "pylint/*" \
     "setuptools/*" "wheel/*"
