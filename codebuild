@@ -80,6 +80,9 @@ postbuild() {
     }
 }
 .EOF
+
+  echo "Contents of cloudformation-params.json:"
+  cat cloudformation-params.json
 }
 
 main "$@"
