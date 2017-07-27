@@ -14,7 +14,7 @@ Parameters:
     Type: String
     Description: The Role ARN for the Lambda function to assume.
 Resources:
-  ApiFunction:
+  CFNToolkit:
     Type: AWS::Lambda::Function
     Properties:
       Code:
@@ -26,3 +26,40 @@ Resources:
       Role: !Ref LambdaRoleArn
       Runtime: python3.6
       Timeout: 10
+  TestGeneratePassphrase:
+    Type: Custom::GeneratePassword
+    Properties:
+      ServiceToken: !GetAtt CFNToolkit.Arn
+      PasswordType: phrase
+  TestPasswordHashMD5:
+    Type: Custom::HashPassword
+    Properties:
+      ServiceToken: !GetAtt CFNToolkit.Arn
+      # This is what Keycloak uses for the admin password hash.
+      AllowInsecure: true
+      Scheme: hex_md5
+      PlaintextPassword: "username:realm:password"
+  TestPasswordHashPBKDF2Generated:
+    Type: Custom::HashPassword
+    Properties:
+      ServiceToken: !GetAtt CFNToolkit.Arn
+      Scheme: pbkdf2_sha256
+      PlaintextPassword: !GetAtt TestGeneratePassphrase.PlaintextPassword
+  TestSecureRandom:
+    Type: Custom::SecureRandom
+    Properties:
+      ServiceToken: !GetAtt CFNToolkit.Arn
+      Size: 64
+Outputs:
+  Passphrase:
+    Value: !GetAtt TestGeneratePassphrase.PlaintextPassword
+  PasswordHashMD5:
+    Value: !GetAtt TestPasswordHashMD5.Hash
+  PasswordHashPBKDF2Generated:
+    Value: !GetAtt TestPasswordHashPBKDF2Generated.Hash
+  SecureRandomRaw:
+    Value: !GetAtt TestSecureRandom.Raw
+  SecureRandomBase64:
+    Value: !GetAtt TestSecureRandom.Base64
+  SecureRandomHex:
+    Value: !GetAtt TestSecureRandom.Hex
