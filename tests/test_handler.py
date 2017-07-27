@@ -6,7 +6,6 @@ Test the Lambda handler.
 from base64 import b64decode, b64encode
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from json import loads as json_loads
-from sys import stderr
 from threading import Thread
 from unittest import skip, TestCase
 
@@ -54,8 +53,6 @@ class TestHandler(TestCase):
 
     def setUp(self):
         ResponseHandler.responses = []
-        print("Handler is listening on %s:%s" %
-              tuple(self.server.socket.getsockname()), file=stderr)
         return
 
     def invoke(self, ResourceType, RequestType="Create",
