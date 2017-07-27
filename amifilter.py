@@ -3,8 +3,12 @@
 Provide filters for the Custom::FindImage resource.
 """
 # pylint: disable=C0103
+from logging import DEBUG, getLogger
 import re
 from typing import Any, Dict, List
+
+log = getLogger()
+log.setLevel(DEBUG)
 
 # EC2 instance families that only support paravirtualization.
 PV_ONLY_INSTANCE_FAMILIES = {"c1", "m1", "m2", "t1",}
@@ -18,15 +22,31 @@ INSTANCE_STORE_FAMILIES = {
     "i3", "m1", "m2", "m3", "r3", "x1",
 }
 
+# Keys for various fields so we catch subtle misspellings
+KEY_REQPROP_ARCHITECTURE = "Architecture"
+KEY_REQPROP_ENA_SUPPORT = "EnaSupport"
+KEY_REQPROP_PLATFORM = "Platform"
+KEY_REQPROP_ROOT_DEVICE_TYPE = "RootDeviceType"
+KEY_REQPROP_VIRTUALIZATION_TYPE = "VirtualizationType"
+
+KEY_EC2_ARCHITECTURE = "architecture"
+KEY_EC2_ENA_SUPPORT = "ena-support"
+KEY_EC2_PLATFORM = "platform"
+KEY_EC2_ROOT_DEVICE_TYPE = "root-device-type"
+KEY_EC2_VIRTUALIZATION_TYPE = "virtualization-type"
+
+HVM = "hvm"
+PARAVIRTUAL = "paravirtual"
+EBS = "ebs"
 
 # These request properties are embedded in the filter directly (though
 # renamed), with the value encapsulated as a list.
 DIRECT_FILTERS = {
-    "Architecture": "architecture",
-    "EnaSupport": "ena-support",
-    "Platform": "platform",
-    "RootDeviceType": "root-device-type",
-    "VirtualizationType": "virtualization-type",
+    KEY_REQPROP_ARCHITECTURE: KEY_EC2_ARCHITECTURE,
+    KEY_REQPROP_ENA_SUPPORT: KEY_EC2_ENA_SUPPORT,
+    KEY_REQPROP_PLATFORM: KEY_EC2_PLATFORM,
+    KEY_REQPROP_ROOT_DEVICE_TYPE: KEY_EC2_ROOT_DEVICE_TYPE,
+    KEY_REQPROP_VIRTUALIZATION_TYPE: KEY_EC2_VIRTUALIZATION_TYPE,
 }
 
 
@@ -67,25 +87,26 @@ def add_instance_type_filter(
 
     if instance_family in PV_ONLY_INSTANCE_FAMILIES:
         # PV-only instance types
-        if (filters.get("virutalization-type", ["paravirtual"]) !=
-                ["paravirtual"]):
+        log.debug("instance_family=%s filters=%s", instance_family, filters)
+        if (filters.get(KEY_EC2_VIRTUALIZATION_TYPE, [PARAVIRTUAL]) !=
+                [PARAVIRTUAL]):
             raise ValueError(
                 "VirtualizationType must be paravirtual for %s instance "
                 "types" % (instance_type,))
 
-        filters["virtualization-type"] = ["paravirtual"]
+        filters[KEY_EC2_VIRTUALIZATION_TYPE] = [PARAVIRTUAL]
     # Ignore Switch hitting instance types (c3, etc.); assume all newer
     # instance families are HVM-only.
     elif instance_family not in PV_HVM_INSTANCE_FAMILIES:
-        if filters.get("virtualization-type", ["hvm"]) != ["hvm"]:
+        if filters.get(KEY_EC2_VIRTUALIZATION_TYPE, [HVM]) != [HVM]:
             raise ValueError(
                 "VirtualizationType must be hvm for %s instance types" %
                 (instance_type,))
-        filters["virtualization-type"] = ["hvm"]
+        filters[KEY_EC2_VIRTUALIZATION_TYPE] = [HVM]
 
     if instance_family not in INSTANCE_STORE_FAMILIES:
         # EBS-only root volume types.
-        if filters.get("root-device-type", ["ebs"]) != ["ebs"]:
+        if filters.get(KEY_EC2_ROOT_DEVICE_TYPE, [EBS]) != [EBS]:
             raise ValueError(
                 "RootDeviceType must be ebs for %s instance types" %
                 (instance_type,))
