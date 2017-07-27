@@ -1,0 +1,85 @@
+#!/bin/bash -ex
+
+main() {
+  echo "Executing:   codebuild $@"
+  echo "Working dir: $PWD"
+
+  export PATH="${PATH}:/usr/local/sbin:/usr/local/bin"
+
+  if [[ $# -eq 0 ]]; then
+    echo "Usage: codebuild {install|prebuild|build|postbuild}" 1>&2;
+    exit 1;
+  fi;
+
+  case "$1" in
+    install | prebuild | build | postbuild )
+    "$1";;
+
+    * )
+    echo "Usage: codebuild {install|prebuild|build|postbuild}" 1>&2;
+    exit 1;
+  esac;
+
+  return 0;
+}
+
+install() {
+  pip-3.6 install awscli virtualenv
+  return 0;
+}
+
+prebuild() {
+  # Create a virtual environment for our use during the build.
+  virtualenv venv
+  source venv/bin/activate
+
+  # Install our dependencies.
+  pip install -r requirements.txt
+}
+
+build() {
+  source venv/bin/activate
+  rm -f $CODEBUILD_SRC_DIR/cfn-toolkit-lambda.zip
+  python -m py_compile handler.py hashparams.py
+
+  zip $CODEBUILD_SRC_DIR/cfn-toolkit-lambda.zip \
+    amifilter.py handler.py hashparams.py
+
+  cd venv/lib/python3.6/site-packages
+
+  zip -r $CODEBUILD_SRC_DIR/lambda.zip . --exclude "*.dist-info/*" "*.so" \
+    "*.dylib" "boto3/*" "botocore/*" "coverage/*" "docutils/*" "jmespath/*" \
+    "markupsafe/*" "mock/*" "moto/*" "nose/*" "pbr/*" "pip/*" "pylint/*" \
+    "setuptools/*" "wheel/*"
+
+  cd ../../../..
+}
+
+postbuild() {
+  # Upload the Lambda ZIP file to the staging bucket.
+  S3_VERSION="$(aws --output text s3 cp
+    $CODEBUILD_SRC_DIR/cfn-toolkit-lambda.zip "s3://${S3_BUCKET}/${S3_KEY}"
+    --query VersionId)"
+
+  # Create a CFN parameter file.
+  cat > cloudformation-params.json <<.EOF
+{
+    "Parameters": {
+        "LambdaS3Bucket": "${S3_BUCKET}",
+        "LambdaS3Key": "${S3_KEY}",
+        "LambdaS3Version": "${S3_VERSION}",
+        "LambdaRoleArn": "${LAMBDA_ROLE_ARN}"
+    },
+    "StackPolicy": {
+        "Statement": [{
+            "Effect": "Allow",
+            "Action": "*",
+            "Principal": "*",
+            "Resource": "*"
+        }]
+    }
+}
+.EOF
+}
+
+main "$@"

@@ -1,0 +1,21 @@
+version: 0.1
+
+phases:
+  install:
+    commands:
+      - chmod a+x ./codebuild
+      - ./codebuild install
+  pre_build:
+    commands:
+      - ./codebuild prebuild
+  build:
+    commands:
+      - ./codebuild build
+  post_build:
+    commands:
+      - ./codebuild postbuild
+artifacts:
+  type: zip
+  files:
+    - cloudformation.yml
+    - cloudformation-params.json
