@@ -23,5 +23,5 @@ for region in $(aws --output text ec2 describe-regions | awk '{print $3}'); do
   fi;
 
   aws --profile iono --region $region s3 cp lambda.zip \
-    s3://ionosphere-cfn-${region}/ionosphere-cfn-utils.zip
+    s3://ionosphere-cfn-${region}/ionosphere-cfn-utils.zip --acl public-read
 done;
