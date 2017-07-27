@@ -3,26 +3,38 @@
 This is a set of custom CloudFormation resources to help make deployments
 easier.
 """
-from base64 import b64decode, b64encode
-from distutils.util import strtobool
+# pylint: disable=C0103
+from base64 import b16encode, b64decode, b64encode
+from distutils.util import strtobool        # pylint: disable=E0401,E0611
 from json import dumps as json_dumps
 from logging import getLogger, DEBUG
-from os import environ, urandom
-import re
+from os import urandom
+from typing import Any, Dict
 from uuid import uuid4
 
+from amifilter import add_filters, filter_names_and_descriptions
 import boto3
 from passlib.pwd import genphrase, genword
 from iso8601 import parse_date
 import requests
-from hashparams import HashAlgorithm
+from hashparams import HashAlgorithm, HashParameter
 
 log = getLogger()
 log.setLevel(DEBUG)
 
-def lambda_handler(event, context):
-    global handlers
+def listify(value: Any):
+    """
+    Encapsulate value in a list if it isn't already.
+    """
+    if isinstance(value, list):
+        return value
 
+    return [value]
+
+def lambda_handler(event: Dict[str, Any], _) -> None:
+    """
+    Main entrypoint for the Lambda function.
+    """
     log.debug("event=%s", event)
 
     body = {
@@ -49,7 +61,7 @@ def lambda_handler(event, context):
             body["Status"] = "SUCCESS"
             del body["Reason"]
             body["Data"] = data
-        except Exception as e:
+        except Exception as e:              # pylint: disable=W0703
             log.error("Failed", exc_info=1)
             body["Reason"] = str(e)
 
@@ -67,20 +79,10 @@ def lambda_handler(event, context):
     return
 
 
-def api_gateway_binary(event):
+def api_gateway_binary(event: Dict[str, Any]) -> Dict[str, Any]:
     """
     Custom::ApiGatewayBinary resource
-
-    This enables binary support on an API Gateway REST API.
-
-    Usage:
-    Resources:
-      RestApi:
-        Type: AWS::Gateway::RestApi
-      EnableBinary:
-        Type: Custom::APIGatewayBinary
-        Properties:
-          RestApiId: !Ref RestApi
+    Enable binary support on an API Gateway REST API.
     """
     apigw = boto3.client("apigateway")
     request_type = event["RequestType"]
@@ -108,176 +110,45 @@ def api_gateway_binary(event):
 def find_image(event):
     """
     Custom::FindImage resource
-
-    This locates the latest version of an AMI/AKI/ARI.
-
-    Usage:
-    Resources:
-      OS:
-        Type: Custom::FindAMI
-        Properties:
-          Architecture: i386|x86_64
-          EnaSupport: true|false
-          ExcludedDescriptions: list of regular expressions to test against the
-            description field; matching AMIs are excluded.
-          IncludedDescriptions: list of regular expressions to test against the
-            description field; non-matching AMIs are excluded.
-          InstanceType: Restricts AMIs to those capable of running on the given
-            instance type.
-          Owner: The owner of the AMI to return. Either a 12-digit AWS account number,
-            "amazon", "aws-marketplace", "microsoft", or "self".
-          Platform: Either "windows" or not specified.
-          PreferredRootDeviceType: If specified, prefers (but does not require) images
-            using the specified root device type, either "ebs" or "instance-store".
-          PreferredVirtualizationType: If specified, prefers (but does not require)
-            images using the specified virtualization type, either "hvm" or
-            "paravirtual".
-          RootDeviceType: If specified, filters images to the specified root device
-            type, either "ebs" or "instance-store".
-          VirtualizationType: If specified, filters images to the specified
-            virtualization type, either "hvm" or "paravirtual".
-      Instance:
-        Type: AWS::EC2::Instance
-        Properties:
-          ImageId: !GetAtt OS.AmiId
+    Locates the latest version of an AMI/AKI/ARI with given attributes.
     """
     if event["RequestType"] not in ("Create", "Update"):
         return
 
     rp = dict(event["ResourceProperties"])
-    filters = []
+    filters = {}
 
     try:
         owner = rp["Owner"]
     except KeyError:
         raise ValueError("Owner must be specified")
 
+    add_filters(rp, filters)
 
-    architecture = rp.get("Architecture")
-    if architecture is not None:
-        filters.append({"Name": "architecture", "Values": [architecture]})
-
-    ena_support = rp.get("EnaSupport")
-    if ena_support is not None:
-        filters.append({"Name": "ena-support", "Values": [ena_support]})
-
-    platform = rp.get("Platform")
-    if platform is not None:
-        filters.append({"Name": "platform", "Values": [platform]})
-
-    instance_type = rp.get("InstanceType")
-    if instance_type is not None:
-        if "." in instance_type:
-            instance_family = instance_type[:instance_type.find(".")]
-        else:
-            instance_family = instance_type
-
-        if instance_family in {"c1", "m1", "m2", "t1"}:
-            # PV-only instance types
-            if ("VirtualizationType" in rp and
-                rp.pop("VirtualizationType") != "paravirtual"):
-                raise ValueError(
-                    "VirtualizationType must be paravirtual for %s "
-                    "instance types" % instance_type)
-            filters.append({"Name": "virtualization-type",
-                            "Values": ["paravirtual"]})
-        elif instance_family not in {"c3", "hi1", "hs1", "m3"}:
-            # Ignore Switch hitting instance types (c3, etc.)
-            if ("VirtualizationType" in rp and
-                rp.pop("VirtualizationType") != "hvm"):
-                raise ValueError(
-                    "VirtualizationType must be hvm for %s instance types" %
-                    instance_type)
-            filters.append({"Name": "virtualization-type",
-                            "Values": ["hvm"]})
-
-        if instance_family in {"c4", "m4", "p2", "r4", "t1", "t2"}:
-            # EBS-only root volume types.
-            if ("RootDeviceType" in rp and
-                rp.pop("RootDeviceType") != "ebs"):
-                raise ValueError(
-                    "RootDeviceType must be ebs for %s instance types" %
-                    instance_type)
-            filters.append({"Name": "root-device-type",
-                            "Values": ["ebs"]})
-
-    root_device_type = rp.get("RootDeviceType")
-    if root_device_type is not None:
-        filters.append({"Name": "root-device-type", "Values": [root_device_type]})
-
-    virtualization_type = rp.get("VirtualizationType")
-    if virtualization_type is not None:
-        filters.append({"Name": "virtualization-type",
-                        "Values": [virtualization_type]})
-
-    excluded_descriptions = rp.get("ExcludedDescriptions")
-    excluded_names = rp.get("ExcludedNames")
-    included_descriptions = rp.get("IncludedDescriptions")
-    included_names = rp.get("IncludedNames")
-
-    if isinstance(excluded_descriptions, str):
-        excluded_descriptions = [excluded_descriptions]
-
-    if isinstance(excluded_names, str):
-        excluded_names = [excluded_names]
-
-    if isinstance(included_descriptions, str):
-        included_descriptions = [included_descriptions]
-
-    if isinstance(included_names, str):
-        included_names = [included_names]
+    # Convert the filters dict to a list of {Name: key, Value: values} dicts
+    ec2_filters = [{"Name": key, "Values": values}
+                   for key, values in filters.items()]
 
     ec2 = boto3.client("ec2")
-    result = ec2.describe_images(Owners=[owner], Filters=filters)
+    result = ec2.describe_images(Owners=[owner], Filters=ec2_filters)
     images = result.get("Images")
 
     if not images:
         raise ValueError("No AMIs found that match the filters applied.")
 
-    if excluded_descriptions is not None:
-        regex = re.compile(
-            "|".join(["(?:%s)" % desc for desc in excluded_descriptions]))
-
-        images = [im for im in images if not regex.search(im["Description"])]
-
-    if not images:
-        raise ValueError("No AMIs found; all AMIs matched ExcludedDescriptions")
-
-    if excluded_names is not None:
-        regex = re.compile(
-            "|".join(["(?:%s)" % desc for desc in excluded_names]))
-
-        images = [im for im in images if not regex.search(im["Name"])]
-
-    if not images:
-        raise ValueError("No AMIs found; all AMIs matched ExcludedNames")
-
-    if included_descriptions is not None:
-        regex = re.compile(
-            "|".join(["(?:%s)" % desc for desc in included_descriptions]))
-
-        images = [im for im in images if regex.search(im["Description"])]
-
-    if not images:
-        raise ValueError("No AMIs found; no AMIs matched IncludedDescriptions")
-
-    if included_names is not None:
-        regex = re.compile(
-            "|".join(["(?:%s)" % desc for desc in included_names]))
-
-        images = [im for im in images if regex.search(im["Name"])]
-
-    if not images:
-        raise ValueError("No AMIs found; no AMIs matched IncludedNames")
+    images = filter_names_and_descriptions(images, rp)
 
     preferred_virtualization_type = rp.get("PreferredVirtualizationType")
     preferred_root_device_type = rp.get("PreferredRootDeviceType")
 
     def sort_key(image):
+        """
+        Prioritize AMI preferences.
+        """
         date = parse_date(image["CreationDate"])
         is_preferred_virtualization_type = (
             preferred_virtualization_type is None or
-            image["VirtualizationType"] == preferred_virtualization_Type)
+            image["VirtualizationType"] == preferred_virtualization_type)
         is_preferred_root_device_type = (
             preferred_root_device_type is None or
             image["RootDeviceType"] == preferred_root_device_type)
@@ -295,6 +166,10 @@ def find_image(event):
 
 
 def generate_password(event):
+    """
+    Custom::GeneratePassword resource
+    Generate a password using passlib.
+    """
     if event["RequestType"] not in ("Create", "Update"):
         return
 
@@ -305,47 +180,10 @@ def generate_password(event):
 
     if password_type == "phrase":
         generator = genphrase
-
-        if "Chars" in rp:
-            raise ValueError(
-                'Chars cannot be specified when PasswordType is "phrase"')
-
-        if "Charset" in rp:
-            raise ValueError(
-                'Charset cannot be specified when PasswordType is "phrase"')
-
-        if "Wordset" in rp:
-            if "Words" in rp:
-                raise ValueError(
-                    'Words and Wordset are mutually exclusive')
-            kw["wordset"] = rp["Wordset"]
-        elif "Words" in rp:
-            kw["words"] = rp["Words"]
-
-        if "Separator" in rp:
-            kw["sep"] = rp["Separator"]
+        handle_genphrase_properties(rp, kw)
     elif password_type == "word":
         generator = genword
-
-        if "Words" in rp:
-            raise ValueError(
-                'Words cannot be specified when PasswordType is "word"')
-
-        if "Wordset" in rp:
-            raise ValueError(
-                'Wordset cannot be specified when PasswordType is "word"')
-
-        if "Charset" in rp:
-            if "Chars" in rp:
-                raise ValueError(
-                    'Chars and Charset are mutually exclusive')
-            kw["charset"] = rp["Charset"]
-        elif "Chars" in rp:
-            kw["chars"] = rp["Chars"]
-
-        if "Separator" in rp:
-            raise ValueError(
-                'Separator cannot be specified when PasswordType is "word"')
+        handle_genword_properties(rp, kw)
     else:
         raise ValueError(
             'PasswordType must be "word" or "phrase": %r' % password_type)
@@ -368,87 +206,103 @@ def generate_password(event):
             Plaintext=password.encode("utf-8"))
 
         blob = result["CiphertextBlob"]
-        return {"CiphertextBase64Password": b64encode(blob).decode("utf-8")}
+        result = {"CiphertextBase64Password": b64encode(blob).decode("utf-8")}
     else:
-        return {"PlaintextPassword": password}
+        result = {"PlaintextPassword": password}
 
+    return result
+
+def handle_genphrase_properties(
+        request_properties: Dict[str, Any], generator_kw: Dict[str, Any]) \
+        -> None:
+    """
+    handle_genphrase_properties(
+        request_properties: Dict[str, Any], generator_kw: Dict[str, Any]) -> None
+    Convert request properties to keyword parameters for the generator.
+    """
+    if "Chars" in request_properties:
+        raise ValueError(
+            'Chars cannot be specified when PasswordType is "phrase"')
+
+    if "Charset" in request_properties:
+        raise ValueError(
+            'Charset cannot be specified when PasswordType is "phrase"')
+
+    if "Wordset" in request_properties:
+        if "Words" in request_properties:
+            raise ValueError(
+                'Words and Wordset are mutually exclusive')
+        generator_kw["wordset"] = request_properties["Wordset"]
+    elif "Words" in request_properties:
+        generator_kw["words"] = request_properties["Words"]
+
+    if "Separator" in request_properties:
+        generator_kw["sep"] = request_properties["Separator"]
+
+    return
+
+def handle_genword_properties(
+        request_properties: Dict[str, Any], generator_kw: Dict[str, Any]) \
+        -> None:
+    """
+    handle_genword_properties(
+        request_properties: Dict[str, Any], generator_kw: Dict[str, Any]) -> None
+    Convert request properties to keyword parameters for the generator.
+    """
+    if "Words" in request_properties:
+        raise ValueError(
+            'Words cannot be specified when PasswordType is "word"')
+
+    if "Wordset" in request_properties:
+        raise ValueError(
+            'Wordset cannot be specified when PasswordType is "word"')
+
+    if "Charset" in request_properties:
+        if "Chars" in request_properties:
+            raise ValueError(
+                'Chars and Charset are mutually exclusive')
+        generator_kw["charset"] = request_properties["Charset"]
+    elif "Chars" in request_properties:
+        generator_kw["chars"] = request_properties["Chars"]
+
+    if "Separator" in request_properties:
+        raise ValueError(
+            'Separator cannot be specified when PasswordType is "word"')
+
+    return
 
 def hash_password(event):
+    """
+    Custom::HashPassword resource
+
+    Hash a password. See the passlib documentation for more details.
+
+    Note: Some of the hashing schemes are now considered insecure, but are
+    included because various legacy products require them. To use an insecure
+    hashing mechanism, the AllowInsecure property must be set to true.
+    """
     if event["RequestType"] not in ("Create", "Update"):
         return
 
     rp = dict(event["ResourceProperties"])
 
-    allow_insecure = rp.pop("AllowInsecure", False)
-    if isinstance(allow_insecure, str):
-        allow_insecure = strtobool(allow_insecure)
-    elif isinstance(allow_insecure, (list, tuple, dict)):
-        raise TypeError("AllowInsecure must be true or false")
-    else:
-        allow_insecure = bool(allow_insecure)
-
-    ciphertext_b64_password = rp.pop("CiphertextBase64Password", None)
-    encryption_context = rp.pop("EncryptionContext", None)
-    plaintext_password = rp.pop("PlaintextPassword", None)
-    scheme = rp.pop("Scheme", None)
-
     # Make sure we have exactly one of plaintext_password or ciphertext_b64_password
-    if plaintext_password is None:
-        if ciphertext_b64_password is None:
-            raise ValueError(
-                "Either PlaintextPassword or CiphertextBase64Password must be "
-                "specified")
-
-        if not isinstance(ciphertext_b64_password, str):
-            raise TypeError(
-                "CiphertextBase64Password must be a string")
-
-        if encryption_context is None:
-            encryption_context = {}
-        elif not isinstance(encryption_context, dict):
-            raise TypeError("EncryptionContext must be a mapping")
-
-        try:
-            ciphertext = b64decode(ciphertext_b64_password)
-        except ValueError:
-            raise ValueError(
-                "Invalid base64 encoding in CiphertextBase64Password")
-
-        try:
-            result = boto3.client("kms").decrypt(
-                CiphertextBlob=ciphertext,
-                EncryptionContext=encryption_context)
-        except Exception:
-            raise ValueError(
-                "Unable to decrypt CiphertextBase64Password")
-
-        plaintext_password = result["Plaintext"]
-    else:
-        if ciphertext_b64_password:
-            raise ValueError(
-                "PlaintextPassword and CiphertextBase64Password are mutually "
-                "exclusive")
-
-        if not isinstance(plaintext_password, str):
-            raise TypeError("PlaintextPassword must be a string")
-
-    # Make sure Scheme was specified and is valid.
-    if scheme is None:
-        raise ValueError("Scheme must be specified")
-    elif not isinstance(scheme, str):
-        raise TypeError("Scheme must be a string")
-    elif not scheme:
-        raise ValueError("Scheme cannot be empty")
-
-    if scheme.replace("-", "_") not in HashAlgorithm.algorithms:
-        raise ValueError("Unknown scheme %r" % scheme)
-
-    algorithm = HashAlgorithm.algorithms[scheme.replace("-", "_")]
-
-    # Don't allow insecure algorithms if AllowInsecure wasn't specified.
-    if not algorithm.is_secure and not allow_insecure:
+    if "PlaintextPassword" in rp and "CiphertextBase64Password" in rp:
         raise ValueError(
-            "Scheme %s is insecure and AllowInsecure was not specified" % scheme)
+            "PlaintextPassword and CiphertextBase64Password are mutually "
+            "exclusive")
+
+    if "PlaintextPassword" not in rp and "CiphertextBase64Password" not in rp:
+        raise ValueError(
+            "Either PlaintextPassword or CiphertextBase64Password must be "
+            "specified")
+
+    if "PlaintextPassword" in rp:
+        plaintext_password = handle_plaintext_password_hash_params(rp)
+    else:
+        plaintext_password = handle_ciphertext_password_hash_params(rp)
+
+    algorithm = get_hash_algorithm(rp)
 
     # Parse algorithm-specific parameters
     builder = algorithm.algorithm
@@ -459,35 +313,8 @@ def hash_password(event):
             continue
 
         parameter_value = rp.pop(parameter_name)
-        try:
-            parameter_value = parameter.type(parameter_value)
-        except (TypeError, ValueError):
-            raise ValueError("Invalid value for parameter %s: %r" %
-                (parameter_name, parameter_value))
-
-        if parameter.validator is not None:
-            parameter.validator(parameter_value)
-
-        if (parameter.min_length is not None and
-            len(parameter_value) < parameter.min_length):
-            raise ValueError("Length of parameter %s cannot be less than %s: %r" %
-                (parameter_name, parameter.min_length, parameter_value))
-
-        if (parameter.max_length is not None and
-            len(parameter_value) > parameter.max_length):
-            raise ValueError("Length of parameter %s cannot be greater than %s: %r" %
-                (parameter_name, parameter.max_length, parameter_value))
-
-        if (parameter.min_value is not None and
-            parameter_value < parameter.min_value):
-            raise ValueError("Value of parameter %s cannot be less than %s: %r" %
-                (parameter_name, parameter.min_value, parameter_value))
-
-        if (parameter.max_value is not None and
-            parameter_value > parameter.max_value):
-            raise ValueError("Value of parameter %s cannot be greater than %s: %r" %
-                (parameter_name, parameter.max_value, parameter_value))
-
+        parameter_value = validate_hash_parameter(
+            parameter, parameter_name, parameter_value)
         builder_kw[parameter.algorithm_parameter] = parameter_value
 
     if rp:
@@ -499,7 +326,135 @@ def hash_password(event):
 
     return {"Hash": result}
 
+def handle_plaintext_password_hash_params(
+        request_properties: Dict[str, Any]) -> str:
+    """
+    handle_plaintext_password_hash_params(
+            request_properties: Dict[str, Any]) -> str
+    Handle the PlaintextPassword case of Custom::HashPassword
+    """
+    plaintext_password = request_properties.pop("PlaintextPassword")
+    if not isinstance(plaintext_password, str):
+        raise TypeError("PlaintextPassword must be a string")
+
+    return plaintext_password
+
+def handle_ciphertext_password_hash_params(
+        request_properties: Dict[str, Any]) -> str:
+    """
+    handle_ciphertext_password_hash_params(
+            request_properties: Dict[str, Any]) -> str
+    Handle the CiphertextBase64Password case of Custom::HashPassword,
+    returning the plaintext password.
+    """
+    ciphertext_b64_password = request_properties.pop("CiphertextBase64Password")
+    encryption_context = request_properties.pop("EncryptionContext", None)
+    if not isinstance(ciphertext_b64_password, str):
+        raise TypeError(
+            "CiphertextBase64Password must be a string")
+
+    if encryption_context is None:
+        encryption_context = {}
+    elif not isinstance(encryption_context, dict):
+        raise TypeError("EncryptionContext must be a mapping")
+
+    try:
+        ciphertext = b64decode(ciphertext_b64_password)
+    except ValueError:
+        raise ValueError(
+            "Invalid base64 encoding in CiphertextBase64Password")
+
+    try:
+        result = boto3.client("kms").decrypt(
+            CiphertextBlob=ciphertext,
+            EncryptionContext=encryption_context)
+    except Exception:
+        raise ValueError(
+            "Unable to decrypt CiphertextBase64Password")
+
+    return result["Plaintext"]
+
+
+def get_hash_algorithm(
+        request_properties: Dict[str, Any]) -> HashAlgorithm:
+    """
+    get_hash_algorithm(
+        request_properties: Dict[str, Any]) -> HashAlgorithm
+    Find a hash algorithm for the Scheme request property.
+    """
+    scheme = request_properties.pop("Scheme", None)
+    allow_insecure = request_properties.pop("AllowInsecure", False)
+    if isinstance(allow_insecure, str):
+        allow_insecure = strtobool(allow_insecure)
+    elif isinstance(allow_insecure, (list, tuple, dict)):
+        raise TypeError("AllowInsecure must be true or false")
+    else:
+        allow_insecure = bool(allow_insecure)
+
+    # Make sure Scheme was specified and is valid.
+    if scheme is None:
+        raise ValueError("Scheme must be specified")
+    elif not isinstance(scheme, str):
+        raise TypeError("Scheme must be a string")
+    elif not scheme:
+        raise ValueError("Scheme cannot be empty")
+
+    algorithm = HashAlgorithm.algorithms.get(scheme.replace("-", "_"))
+    if algorithm is None:
+        raise ValueError("Unknown scheme %r" % scheme)
+
+    # Don't allow insecure algorithms if AllowInsecure wasn't specified.
+    if not algorithm.is_secure and not allow_insecure:
+        raise ValueError(
+            "Scheme %s is insecure and AllowInsecure was not specified" %
+            scheme)
+
+    return algorithm
+
+def validate_hash_parameter(parameter: HashParameter, name: str,
+                            value: Any) -> Any:
+    """
+    validate_hash_parameter(parameter: HashParameter, name: str,
+                            value: Any) -> Any
+    Make sure a parameter value passes all of its constraints.
+    """
+    try:
+        value = parameter.type(value)
+    except (TypeError, ValueError):
+        raise ValueError(
+            "Invalid value for parameter %s: %r" % (name, value))
+
+    if parameter.validator is not None:
+        parameter.validator(value)
+
+    if parameter.min_length is not None and len(value) < parameter.min_length:
+        raise ValueError(
+            "Length of parameter %s cannot be less than %s: %r" %
+            (name, parameter.min_length, value))
+
+    if parameter.max_length is not None and len(value) > parameter.max_length:
+        raise ValueError(
+            "Length of parameter %s cannot be greater than %s: %r" %
+            (name, parameter.max_length, value))
+
+    if parameter.min_value is not None and value < parameter.min_value:
+        raise ValueError(
+            "Value of parameter %s cannot be less than %s: %r" %
+            (name, parameter.min_value, value))
+
+    if parameter.max_value is not None and value > parameter.max_value:
+        raise ValueError(
+            "Value of parameter %s cannot be greater than %s: %r" %
+            (name, parameter.max_value, value))
+
+    return value
+
+
 def secure_random(event):
+    """
+    Custom::SecureRandom resource
+    Securely generated bytes, base-64 encoded.
+    """
     if event["RequestType"] not in ("Create", "Update"):
         return
 
@@ -511,8 +466,12 @@ def secure_random(event):
     except ValueError:
         raise ValueError("Invalid size parameter: %r" % (size,))
 
-    result = b64encode(urandom(size)).decode("utf-8")
-    return {"Base64": result}
+    result = urandom(size)
+    return {
+        "Raw": result.decode("iso8859-1"),
+        "Hex": b16encode(result).decode("ascii").lower(),
+        "Base64": b64encode(result).decode("ascii"),
+    }
 
 
 handlers = {
