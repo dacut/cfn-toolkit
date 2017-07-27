@@ -26,6 +26,6 @@ setup(
         'Topic :: Software Development :: Libraries :: Python Modules',
     ],
     keywords=['aws', 'cloudformation'],
-    url="https://github.com/dacut/cfn-generator",
+    url="https://github.com/dacut/cfn-toolkit",
     zip_safe=False,
 )
