@@ -317,6 +317,7 @@ def hash_password(event):
             parameter, parameter_name, parameter_value)
         builder_kw[parameter.algorithm_parameter] = parameter_value
 
+    rp.pop("ServiceToken", "")
     if rp:
         raise ValueError("Unknown parameters: %s" %
                          ", ".join(sorted(rp.keys())))
