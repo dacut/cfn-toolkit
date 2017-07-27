@@ -46,15 +46,16 @@ build() {
   rm -f $CODEBUILD_SRC_DIR/cfn-toolkit-lambda.zip
   python -m py_compile handler.py hashparams.py
 
-  zip $CODEBUILD_SRC_DIR/cfn-toolkit-lambda.zip \
+  zip -q $CODEBUILD_SRC_DIR/cfn-toolkit-lambda.zip \
     amifilter.py handler.py hashparams.py
 
   cd venv/lib/python3.6/site-packages
 
-  zip -r $CODEBUILD_SRC_DIR/cfn-toolkit-lambda.zip . --exclude "*.dist-info/*" "*.so" \
-    "*.dylib" "boto3/*" "botocore/*" "coverage/*" "docutils/*" "jmespath/*" \
-    "markupsafe/*" "mock/*" "moto/*" "nose/*" "pbr/*" "pip/*" "pylint/*" \
-    "setuptools/*" "wheel/*"
+  zip -r -q $CODEBUILD_SRC_DIR/cfn-toolkit-lambda.zip . \
+    --exclude "*.dist-info/*" "*.so" \
+    "*.dylib" "boto3*" "botocore*" "coverage*" "docutils*" "jmespath*" \
+    "markupsafe*" "mock*" "moto*" "nose*" "pbr*" "pip*" "pylint*" \
+    "setuptools*" "wheel*"
 
   cd ../../../..
 }
