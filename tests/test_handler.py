@@ -14,6 +14,9 @@ import boto3
 from moto import mock_apigateway
 
 class ResponseHandler(BaseHTTPRequestHandler):
+    """
+    Handles S3 POSTs that the Lambda handler sends its results to.
+    """
     responses = []
 
     def do_PUT(self):
@@ -33,6 +36,9 @@ class ResponseHandler(BaseHTTPRequestHandler):
 
 
 class TestHandler(TestCase):
+    """
+    The meat of the testing.
+    """
     @classmethod
     def setUpClass(cls):
         cls.server = HTTPServer(("127.0.0.1", 0), ResponseHandler)

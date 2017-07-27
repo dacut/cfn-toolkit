@@ -39,6 +39,9 @@ prebuild() {
 
 build() {
   source venv/bin/activate
+  pip3.6 install moto
+  ./setup.py nosetests
+
   rm -f $CODEBUILD_SRC_DIR/cfn-toolkit-lambda.zip
   python -m py_compile handler.py hashparams.py
 
