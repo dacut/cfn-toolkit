@@ -23,6 +23,6 @@ Resources:
         S3ObjectVersion: !Ref LambdaS3Version
       Handler: handler.lambda_handler
       MemorySize: 128
-      Role: !GetAtt LambdaApiRole.Arn
+      Role: !Ref LambdaRoleArn
       Runtime: python3.6
       Timeout: 10
