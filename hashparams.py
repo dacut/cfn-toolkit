@@ -1,9 +1,14 @@
-from passlib.exc import PasslibSecurityWarning
+"""
+Information about hash algorithms.
+"""
+# pylint: disable=C0103,R0903
+
 from warnings import catch_warnings, filterwarnings
+from passlib.exc import PasslibSecurityWarning
 
 with catch_warnings():
     filterwarnings("ignore", category=PasslibSecurityWarning)
-    from passlib.hash import (
+    from passlib.hash import (                      # pylint: disable=E0611
         apr_md5_crypt, argon2, bcrypt, bcrypt_sha256, bigcrypt, bsdi_crypt,
         bsd_nthash, crypt16, cta_pbkdf2_sha1, des_crypt, dlitz_pbkdf2_sha1,
         django_argon2, django_bcrypt, django_bcrypt_sha256, django_des_crypt,
@@ -17,6 +22,9 @@ with catch_warnings():
     )
 
 class HashAlgorithm(object):
+    """
+    Information about a given hash algorithm.
+    """
     algorithms = {}
 
     def __init__(self, name, algorithm, is_secure, parameters=None):
@@ -29,7 +37,11 @@ class HashAlgorithm(object):
         return
 
 class HashParameter(object):
-    def __init__(self, algorithm_parameter, type,
+    """
+    Information about a hash algorithm parameter, including its type, min/max
+    values, min/max length, and an optional custom validator.
+    """
+    def __init__(self, algorithm_parameter, type, # pylint: disable=R0913,W0622
                  min_value=None, max_value=None,
                  min_length=None, max_length=None,
                  validator=None):
@@ -44,7 +56,13 @@ class HashParameter(object):
         return
 
 def validate_scram_algs(value):
-    if len(value) == 0:
+    """
+    validate_scram_algs(value)
+    Make sure scram's underlying hash algorithms are valid and includes
+    an algorithm besides SHA-1.
+    """
+
+    if not value:
         raise ValueError("Algs cannot be empty")
 
     for el in value:
