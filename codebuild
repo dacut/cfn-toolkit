@@ -39,7 +39,8 @@ prebuild() {
 
 build() {
   source venv/bin/activate
-  pip3.6 install moto
+  pip3.6 install coverage moto nose
+  chmod a+x ./setup.py
   ./setup.py nosetests
 
   rm -f $CODEBUILD_SRC_DIR/cfn-toolkit-lambda.zip
