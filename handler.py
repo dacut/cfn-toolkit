@@ -469,7 +469,6 @@ def secure_random(event):
 
     result = urandom(size)
     return {
-        "Raw": result.decode("iso8859-1"),
         "Hex": b16encode(result).decode("ascii").lower(),
         "Base64": b64encode(result).decode("ascii"),
     }
