@@ -204,4 +204,3 @@ Securely generate random bytes.
 ### Returned Attributes
 * `Base64`: The base-64 encoded bytes.
 * `Hex`: The hexadecimal (lowercase) encoded bytes.
-* `Raw`: The plaintext bytes.
