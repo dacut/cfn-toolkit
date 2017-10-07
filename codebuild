@@ -68,7 +68,7 @@ postbuild() {
     "StackPolicy": {
         "Statement": [{
             "Effect": "Allow",
-            "Action": "*",
+            "Action": "Update:*",
             "Principal": "*",
             "Resource": "*"
         }]
