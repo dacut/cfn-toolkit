@@ -2,7 +2,7 @@
 Information about hash algorithms.
 """
 # pylint: disable=C0103,R0903
-
+from typing import Dict                             # pylint: disable=W0611
 from warnings import catch_warnings, filterwarnings
 from passlib.exc import PasslibSecurityWarning
 
@@ -25,7 +25,7 @@ class HashAlgorithm(object):
     """
     Information about a given hash algorithm.
     """
-    algorithms = {}
+    algorithms = {}                         # type: Dict[str, HashAlgorithm]
 
     def __init__(self, name, algorithm, is_secure, parameters=None):
         super(HashAlgorithm, self).__init__()

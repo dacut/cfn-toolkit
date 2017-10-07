@@ -55,19 +55,19 @@ def lambda_handler(event: Dict[str, Any], _) -> None:
             del body["Reason"]
             body["Data"] = data
         except Exception as e:              # pylint: disable=W0703
-            log.error("Failed", exc_info=1)
+            log.error("Failed", exc_info=True)
             body["Reason"] = str(e)
 
     if "PhysicalResourceId" not in body:
         body["PhysicalResourceId"] = str(uuid4())
 
     log.debug("body=%s", body)
-    body = json_dumps(body)
+    body_str = json_dumps(body).encode("utf-8")
     headers = {
         "Content-Type": "",
-        "Content-Length": str(len(body)),
+        "Content-Length": str(len(body_str)),
     }
-    r = requests.put(event["ResponseURL"], headers=headers, data=body)
+    r = requests.put(event["ResponseURL"], headers=headers, data=body_str)
     print("Result: %d %s" % (r.status_code, r.reason))
     return
 

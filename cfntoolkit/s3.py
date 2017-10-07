@@ -5,7 +5,7 @@ CloudFormation Custom::S3BucketNotification resource.
 # pylint: disable=C0103
 from logging import getLogger
 from re import compile as re_compile
-from typing import Any, Dict, List
+from typing import Any, cast, Dict, List, Sequence
 import boto3
 
 log = getLogger("cfntoolkit.s3")
@@ -63,7 +63,7 @@ def get_boto_lambda_configs(lambda_configs: List[Dict[str, Any]]) \
         boto_lc = {
             "Events": validate_event("LambdaConfigurations", lc.get("Event")),
             "LambdaFunctionArn": validate_function_arn(lc.get("Function")),
-        }
+        }                                               # type: Dict[str, Any]
 
         lc_filter = lc.get("Filter")
 
@@ -92,7 +92,7 @@ def get_boto_queue_configs(queue_configs: List[Dict[str, Any]]) \
         boto_qc = {
             "Events": validate_event("TopicConfigurations", qc.get("Event")),
             "QueueArn": validate_queue_arn(qc.get("Queue")),
-        }
+        }                                               # type: Dict[str, Any]
 
         qc_filter = qc.get("Filter")
 
@@ -121,7 +121,7 @@ def get_boto_topic_configs(topic_configs: List[Dict[str, Any]]) \
         boto_tc = {
             "Event": validate_event("TopicConfigurations", tc.get("Event")),
             "TopicArn": validate_topic_arn(tc.get("Topic")),
-        }
+        }                                               # type: Dict[str, Any]
 
         tc_filter = tc.get("Filter")
 
@@ -163,7 +163,7 @@ FILTER_RULES_MSG = """\
 %s Filter.S3Key.Rules must be a list of the form \
 [{"Name": String, "Value": String ...}]"""
 def validate_filter(parent: str, c_filter: Any) \
-    -> Dict[str, List[Dict[str, str]]]:
+    -> Dict[str, Dict[str, List[Dict[str, str]]]]:
     """
     validate_filter(parent: str, c_filter: Any)
         -> Dict[str, Dict[str, List[Dict[str, str]]]]
@@ -183,6 +183,7 @@ def validate_filter(parent: str, c_filter: Any) \
     rules = s3_key["Rules"]
     if not isinstance(rules, (list, tuple)):
         raise TypeError(FILTER_RULES_MSG % parent)
+    rules = cast(Sequence[Dict[str, str]], rules)
 
     for rule in rules:
         if not isinstance(rule, dict):

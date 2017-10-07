@@ -3,9 +3,10 @@
 CloudFormation Custom::FindImage resource handler.
 """
 # pylint: disable=C0103
+from datetime import datetime
 from logging import DEBUG, getLogger
 import re
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 import boto3
 from iso8601 import parse_date
 
@@ -18,10 +19,10 @@ def find_image(event: Dict[str, Any]) -> Dict[str, Any]:
     Locates the latest version of an AMI/AKI/ARI with given attributes.
     """
     if event["RequestType"] not in ("Create", "Update"):
-        return
+        return {}
 
     rp = dict(event["ResourceProperties"])
-    filters = {}
+    filters = {}                                        # type: Dict[str, Any]
 
     try:
         owner = rp["Owner"]
@@ -46,7 +47,7 @@ def find_image(event: Dict[str, Any]) -> Dict[str, Any]:
     preferred_virtualization_type = rp.get("PreferredVirtualizationType")
     preferred_root_device_type = rp.get("PreferredRootDeviceType")
 
-    def sort_key(image):
+    def sort_key(image: Dict[str, Any]) -> Tuple[bool, bool, datetime]:
         """
         Prioritize AMI preferences.
         """

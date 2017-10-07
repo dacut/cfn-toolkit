@@ -30,4 +30,4 @@ def api_gateway_binary(event: Dict[str, Any]) -> Dict[str, Any]:
                 {"op": "remove", "path": "/binaryMediaTypes/*~1*"}
             ])
 
-    return
+    return {}
