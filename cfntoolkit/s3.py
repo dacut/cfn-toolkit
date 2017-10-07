@@ -171,7 +171,7 @@ def validate_filter(parent: str, c_filter: Any) \
     """
     if not isinstance(c_filter, dict):
         raise TypeError(FILTER_MSG % parent)
-    if len(filter) != 1 or "S3Key" not in c_filter:
+    if len(c_filter) != 1 or "S3Key" not in c_filter:
         raise ValueError(FILTER_MSG % parent)
 
     s3_key = c_filter["S3Key"]
