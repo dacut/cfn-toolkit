@@ -51,6 +51,7 @@ Resources:
       SourceArn: !GetAtt S3BucketForNotifications.Arn
   TestNotifications:
     Type: Custom::S3BucketNotification
+    DependsOn: LambdaNotificationFunctionPermission
     Properties:
       ServiceToken: !GetAtt CFNToolkit.Arn
       BucketName: !Ref S3BucketForNotifications
