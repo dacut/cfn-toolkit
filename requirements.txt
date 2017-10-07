@@ -1,4 +1,8 @@
 boto3
+coverage
 iso8601
+moto
+nose
 passlib
+pylint
 requests

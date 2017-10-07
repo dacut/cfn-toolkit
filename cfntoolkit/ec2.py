@@ -1,14 +1,74 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 """
-Provide filters for the Custom::FindImage resource.
+CloudFormation Custom::FindImage resource handler.
 """
 # pylint: disable=C0103
 from logging import DEBUG, getLogger
 import re
 from typing import Any, Dict, List
+import boto3
+from iso8601 import parse_date
 
-log = getLogger()
+log = getLogger("cfntoolkit.ec2")
 log.setLevel(DEBUG)
+
+def find_image(event: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Custom::FindImage resource
+    Locates the latest version of an AMI/AKI/ARI with given attributes.
+    """
+    if event["RequestType"] not in ("Create", "Update"):
+        return
+
+    rp = dict(event["ResourceProperties"])
+    filters = {}
+
+    try:
+        owner = rp["Owner"]
+    except KeyError:
+        raise ValueError("Owner must be specified")
+
+    add_filters(rp, filters)
+
+    # Convert the filters dict to a list of {Name: key, Value: values} dicts
+    ec2_filters = [{"Name": key, "Values": values}
+                   for key, values in filters.items()]
+
+    ec2 = boto3.client("ec2")
+    result = ec2.describe_images(Owners=[owner], Filters=ec2_filters)
+    images = result.get("Images")
+
+    if not images:
+        raise ValueError("No AMIs found that match the filters applied.")
+
+    images = filter_names_and_descriptions(images, rp)
+
+    preferred_virtualization_type = rp.get("PreferredVirtualizationType")
+    preferred_root_device_type = rp.get("PreferredRootDeviceType")
+
+    def sort_key(image):
+        """
+        Prioritize AMI preferences.
+        """
+        date = parse_date(image["CreationDate"])
+        is_preferred_virtualization_type = (
+            preferred_virtualization_type is None or
+            image["VirtualizationType"] == preferred_virtualization_type)
+        is_preferred_root_device_type = (
+            preferred_root_device_type is None or
+            image["RootDeviceType"] == preferred_root_device_type)
+
+        return (is_preferred_virtualization_type,
+                is_preferred_root_device_type,
+                date)
+
+    images.sort(key=sort_key, reverse=True)
+    image_ids = [image["ImageId"] for image in images]
+    return {
+        "ImageId": image_ids[0],
+        "MatchingImageIds": image_ids,
+    }
+
 
 # EC2 instance families that only support paravirtualization.
 PV_ONLY_INSTANCE_FAMILIES = {"c1", "m1", "m2", "t1",}
