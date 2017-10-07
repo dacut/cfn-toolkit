@@ -1,0 +1,8 @@
+.eggs
+.git
+build
+dist
+venv
+lambda.zip
+*.egg-info
+__pycache__

@@ -1,0 +1,4 @@
+coverage>=4.0
+moto
+nose>=1.0
+pylint

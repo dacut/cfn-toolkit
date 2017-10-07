@@ -4,10 +4,14 @@ from setuptools import setup
 with open("requirements.txt", "r") as fd:
     packages = fd.read().split("\n")
 
+with open("requirements-test.txt", "r") as fd:
+    test_packages = fd.read().split("\n")
+
 setup(
     name="CFNGenerator",
     version="0.1.0",
-    py_modules=["handler", "hashparams"],
+    packages=["cfntoolkit"],
+    py_modules=["handler"],
     setup_requires=["nose>=1.0"],
     install_requires=packages,
     tests_require=["coverage>=4.0", "moto", "nose>=1.0"],
