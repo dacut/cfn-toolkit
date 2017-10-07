@@ -57,8 +57,6 @@ Outputs:
     Value: !GetAtt TestPasswordHashMD5.Hash
   PasswordHashPBKDF2Generated:
     Value: !GetAtt TestPasswordHashPBKDF2Generated.Hash
-  SecureRandomRaw:
-    Value: !GetAtt TestSecureRandom.Raw
   SecureRandomBase64:
     Value: !GetAtt TestSecureRandom.Base64
   SecureRandomHex:
