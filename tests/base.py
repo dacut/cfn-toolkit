@@ -5,8 +5,16 @@ Base classes for all tests.
 # pylint: disable=C0103,C0111,R0904
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from json import loads as json_loads
+from logging import getLogger, INFO
+from socket import socket, AF_INET, SOCK_STREAM
+from sys import stderr
 from threading import Thread
 from unittest import TestCase
+
+log = getLogger("tests.base")
+getLogger("passlib.registry").setLevel(INFO)
+getLogger("botocore").setLevel(INFO)
+getLogger("boto3").setLevel(INFO)
 
 class ResponseHandler(BaseHTTPRequestHandler):
     """
@@ -39,11 +47,14 @@ class CFNToolkitTestBase(TestCase):
         cls.server = HTTPServer(("127.0.0.1", 0), ResponseHandler)
         cls.thread = Thread(target=cls.server.serve_forever)
         cls.thread.start()
+        return
 
     @classmethod
     def tearDownClass(cls):
         cls.server.shutdown()
         cls.thread.join()
+        del cls.server
+        del cls.thread
         return
 
 

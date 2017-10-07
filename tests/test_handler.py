@@ -17,6 +17,7 @@ class TestHandler(CFNToolkitTestBase):
         self.assertEqual(result["Status"], "FAILED")
         self.assertEqual(
             result["Reason"], "Unknown resource type Custom::Unknown")
+
     @skip("Moto doesn't support update_rest_api yet")
     def test_apigw_binary(self):
         with mock_apigateway():
