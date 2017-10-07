@@ -24,40 +24,30 @@ main() {
 }
 
 install() {
-  pip3.6 install awscli virtualenv
+  yum install -y binutils gcc gcc-c++ libffi-devel openssl-devel python36 \
+    python36-devel python36-pip zip
+  pip-3.6 install awscli virtualenv
   return 0;
 }
 
 prebuild() {
   # Create a virtual environment for our use during the build.
-  virtualenv venv
-  source venv/bin/activate
-
-  # Install our dependencies.
-  pip3.6 install -r requirements.txt
+  virtualenv --python python3.6 $CODEBUILD_SRC_DIR/venv
+  source $CODEBUILD_SRC_DIR/venv/bin/activate
+  pip-3.6 install -r requirements.txt
 }
 
 build() {
-  source venv/bin/activate
-  pip3.6 install coverage moto nose
-  chmod a+x ./setup.py
+  source $CODEBUILD_SRC_DIR/venv/bin/activate
+  ./setup.py build
+  ./setup.py install
   ./setup.py nosetests
-
-  rm -f $CODEBUILD_SRC_DIR/cfn-toolkit-lambda.zip
-  python -m py_compile handler.py hashparams.py
-
-  zip -q $CODEBUILD_SRC_DIR/cfn-toolkit-lambda.zip \
-    amifilter.py handler.py hashparams.py
-
-  cd venv/lib/python3.6/site-packages
-
-  zip -r -q $CODEBUILD_SRC_DIR/cfn-toolkit-lambda.zip . \
-    --exclude "*.dist-info/*" "*.so" \
-    "*.dylib" "boto3*" "botocore*" "coverage*" "docutils*" "jmespath*" \
-    "markupsafe*" "mock*" "moto*" "nose*" "pbr*" "pip*" "pylint*" \
-    "setuptools*" "wheel*"
-
-  cd ../../../..
+  zip /lambda.zip handler.py
+  cd $CODEBUILD_SRC_DIR/venv/lib/python3.6/site-packages
+  zip -r $CODEBUILD_SRC_DIR/lambda.zip . -x \
+    "*.dist-info/*" "boto3/*" "botocore/*" "dateutil/*" "docutils/*" \
+    "easy_install*" "nose/*" "pbr/*" "pip/*" "s3transfer/*" "setuptools/*" \
+    "wheel/*"
 }
 
 postbuild() {
