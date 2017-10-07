@@ -28,9 +28,7 @@ class TestS3(CFNToolkitTestBase):
         except ValueError:
             pass
 
-    # mock_s3 breaks the response handler.
-    # See https://github.com/spulec/moto/issues/1026
-    @skip
+    @skip("mock_s3 breaks the response handler -- https://github.com/spulec/moto/issues/1026")
     def test_setup_lambda_notifications(self):
         """
         Create a notification.
