@@ -1,3 +1,4 @@
 #!/bin/bash -ex
 pwd
 ls
+touch functest.log
