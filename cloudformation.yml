@@ -62,7 +62,7 @@ Resources:
                 Rules:
                   - Name: suffix
                     Value: txt
-            Function: !Ref LambdaNotificationFunction
+            Function: !GetAtt LambdaNotificationFunction.Arn
   TestGeneratePassphrase:
     Type: Custom::GeneratePassword
     Properties:
