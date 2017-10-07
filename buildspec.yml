@@ -3,7 +3,7 @@ version: 0.2
 phases:
   install:
     commands:
-      - chmod a+x ./codebuild
+      - chmod a+x ./codebuild ./setup.py
       - ./codebuild install
   pre_build:
     commands:
