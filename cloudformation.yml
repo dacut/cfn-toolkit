@@ -45,7 +45,7 @@ Resources:
   LambdaNotificationFunctionPermission:
     Type: AWS::Lambda::Permission
     Properties:
-      Action: lambda:InvokeAsync
+      Action: lambda:InvokeFunction
       FunctionName: !Ref LambdaNotificationFunction
       Principal: s3.amazonaws.com
       SourceArn: !GetAtt S3BucketForNotifications.Arn
